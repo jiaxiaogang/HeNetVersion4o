@@ -7,28 +7,45 @@
 //
 
 #import "NVUtils.h"
-#import "AINetAbsNode.h"
+#import "AINetAbsFoNode.h"
 #import "AIPort.h"
 #import "AIFrontOrderNode.h"
 #import "AIKVPointer.h"
 #import "AICMVNode.h"
 #import "ThinkingUtils.h"
 #import "AIAbsCMVNode.h"
+#import "AIAlgNodeBase.h"
+#import "AINetIndex.h"
 
 @implementation NVUtils
 
 //MARK:===============================================================
-//MARK:                     < value的可视化 >
+//MARK:                     < 组可视化 >
 //MARK:===============================================================
 
 +(NSString*) convertValuePs2Str:(NSArray*)value_ps{
+    //1. 数据准备
     value_ps = ARRTOOK(value_ps);
     NSMutableString *mStr = [NSMutableString new];
-    for (AIKVPointer *value_p in value_ps) {
-        NSNumber *valueNum = [SMGUtils searchObjectForPointer:value_p fileName:FILENAME_Value];
+    
+    //2. 将祖母嵌套展开
+    NSMutableArray *mic_ps = [SMGUtils convertValuePs2MicroValuePs:value_ps];
+    for (AIKVPointer *value_p in mic_ps) {
+        NSNumber *valueNum = [AINetIndex getData:value_p];
         if (valueNum) {
-            char c = [valueNum charValue];
-            [mStr appendFormat:@"%@%c ", value_p.isOut ? @"O" : @"I", c];
+            [mStr appendFormat:@"%@%@:%@ ", value_p.dataSource,(value_p.isOut ? @"^" : @"ˇ"), valueNum];
+        }
+    }
+    return mStr;
+}
+
++(NSString*) convertOrderPs2Str:(NSArray*)order_ps{
+    order_ps = ARRTOOK(order_ps);
+    NSMutableString *mStr = [NSMutableString new];
+    for (AIKVPointer *algNode_p in order_ps) {
+        AIAlgNodeBase *algNode = [SMGUtils searchNode:algNode_p];
+        if (ISOK(algNode, AIAlgNodeBase.class)) {
+            [mStr appendFormat:@"%@%@",(mStr.length == 0 ? @"":@"\n"),[self convertValuePs2Str:algNode.content_ps]];
         }
     }
     return mStr;
@@ -39,24 +56,27 @@
 //MARK:                       < node的可视化 >
 //MARK:===============================================================
 
++(NSString*) getAlgNodeDesc:(AIAlgNodeBase*)algNode {
+    if (ISOK(algNode, AIAlgNodeBase.class)) {
+        return [NVUtils convertValuePs2Str:((AIAlgNodeBase*)algNode).content_ps];
+    }
+    return nil;
+}
+
 //foNode前时序列的描述 (i3 o4)
 +(NSString*) getFoNodeDesc:(AIFoNodeBase*)foNode {
-    NSString *foDesc = nil;
-    if (ISOK(foNode, AIFrontOrderNode.class)) {
-        foDesc = [NVUtils convertValuePs2Str:((AIFrontOrderNode*)foNode).orders_kvp];
-    }else if(ISOK(foNode, AINetAbsNode.class)){
-        NSArray *value_ps = [SMGUtils searchObjectForPointer:((AINetAbsNode*)foNode).absValue_p fileName:FILENAME_AbsValue time:cRedisValueTime];
-        foDesc = [NVUtils convertValuePs2Str:value_ps];
+    if (ISOK(foNode, AIFoNodeBase.class)) {
+        return [NVUtils convertOrderPs2Str:((AIFrontOrderNode*)foNode).orders_kvp];
     }
-    return foDesc;
+    return nil;
 }
 
 //cmvNode的描述 ("ur0_de0"格式)
 +(NSString*) getCmvNodeDesc:(AICMVNodeBase*)cmvNode {
     NSString *cmvDesc = nil;
     if (cmvNode) {
-        NSNumber *urgentToNum = [SMGUtils searchObjectForPointer:cmvNode.urgentTo_p fileName:FILENAME_Value time:cRedisValueTime];
-        NSNumber *deltaNum = [SMGUtils searchObjectForPointer:cmvNode.delta_p fileName:FILENAME_Value time:cRedisValueTime];
+        NSNumber *urgentToNum = [AINetIndex getData:cmvNode.urgentTo_p];
+        NSNumber *deltaNum = [AINetIndex getData:cmvNode.delta_p];
         cmvDesc = STRFORMAT(@"ur%@_de%@",urgentToNum,deltaNum);
     }
     return cmvDesc;
@@ -68,7 +88,7 @@
 
 +(NSString*) getCmvModelDesc_ByFoNode:(AIFoNodeBase*)foNode{
     if (foNode) {
-        AICMVNodeBase *cmvNode = [SMGUtils searchObjectForPointer:foNode.cmvNode_p fileName:FILENAME_Node time:cRedisNodeTime];
+        AICMVNodeBase *cmvNode = [SMGUtils searchNode:foNode.cmvNode_p];
         return [self getCmvModelDesc:foNode cmvNode:cmvNode];
     }
     return nil;
@@ -76,7 +96,7 @@
 
 +(NSString*) getCmvModelDesc_ByCmvNode:(AICMVNodeBase*)cmvNode{
     if (cmvNode) {
-        AIFoNodeBase *foNode = [SMGUtils searchObjectForPointer:cmvNode.foNode_p fileName:FILENAME_Node time:cRedisNodeTime];
+        AIFoNodeBase *foNode = [SMGUtils searchNode:cmvNode.foNode_p];
         return [self getCmvModelDesc:foNode cmvNode:cmvNode];
     }
     return nil;
@@ -90,7 +110,7 @@
     NSString *cmvDesc = [self getCmvNodeDesc:cmvNode];
     
     //3. 拼desc返回
-    return STRFORMAT(@"(fo: %@ => cmv: %@)",foDesc,cmvDesc);
+    return STRFORMAT(@"\nFO>>>>\n%@\nCMV>>>>\n%@",foDesc,cmvDesc);
 }
 
 //MARK:===============================================================
@@ -98,15 +118,15 @@
 //MARK:===============================================================
 
 //conPorts的描述 (conPorts >>\n > 1\n > 2)
-+(NSString*) getFoNodeConPortsDesc:(AINetAbsNode*)absNode{
++(NSString*) getFoNodeConPortsDesc:(AINetAbsFoNode*)absNode{
     //1. 数据检查
     if (absNode) {
         NSMutableString *mStr = [NSMutableString new];
         
         //2. absNode.conPorts.desc
         for (AIPort *conPort in absNode.conPorts) {
-            AIFoNodeBase *conNode = [SMGUtils searchObjectForPointer:conPort.target_p fileName:FILENAME_Node];
-            [mStr appendFormat:@"\n > %@",[self getFoNodeDesc:conNode]];
+            AIFoNodeBase *conNode = [SMGUtils searchNode:conPort.target_p];
+            [mStr appendFormat:@"具象FO:\n%@",[self getFoNodeDesc:conNode]];
         }
         return mStr;
     }
@@ -121,8 +141,8 @@
         
         //2. absNode.absPorts.desc
         for (AIPort *conPort in foNode.absPorts) {
-            AIFoNodeBase *conNode = [SMGUtils searchObjectForPointer:conPort.target_p fileName:FILENAME_Node];
-            [mStr appendFormat:@"\n > %@",[self getFoNodeDesc:conNode]];
+            AIFoNodeBase *conNode = [SMGUtils searchNode:conPort.target_p];
+            [mStr appendFormat:@"抽象FO:\n%@",[self getFoNodeDesc:conNode]];
         }
         return mStr;
     }
