@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="14460.31" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" colorMatched="YES">
+    <device id="retina4_7" orientation="portrait">
+        <adaptation id="fullscreen"/>
+    </device>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="14460.20"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="NVView">
+            <connections>
+                <outlet property="containerView" destination="iN0-l3-epB" id="854-ck-keU"/>
+                <outlet property="openCloseBtn" destination="K2V-Rq-3S5" id="iQD-fm-CVG"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view clipsSubviews="YES" contentMode="scaleToFill" id="iN0-l3-epB">
+            <rect key="frame" x="0.0" y="0.0" width="481" height="403"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="K2V-Rq-3S5">
+                    <rect key="frame" x="0.0" y="0.0" width="481" height="20"/>
+                    <color key="backgroundColor" red="0.89952432832742069" green="1" blue="0.90397931961062949" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                    <constraints>
+                        <constraint firstAttribute="height" constant="20" id="ahc-Ga-vg9"/>
+                    </constraints>
+                    <state key="normal" title="放开"/>
+                    <connections>
+                        <action selector="openCloseBtnOnClick:" destination="-1" eventType="touchUpInside" id="vcB-kT-Et9"/>
+                    </connections>
+                </button>
+            </subviews>
+            <color key="backgroundColor" cocoaTouchSystemColor="groupTableViewBackgroundColor"/>
+            <constraints>
+                <constraint firstItem="K2V-Rq-3S5" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" id="VLq-xM-dPu"/>
+                <constraint firstAttribute="trailing" secondItem="K2V-Rq-3S5" secondAttribute="trailing" id="ZkJ-o1-PXM"/>
+                <constraint firstItem="K2V-Rq-3S5" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="ofi-MI-pHk"/>
+            </constraints>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <point key="canvasLocation" x="148" y="-61.619190404797607"/>
+        </view>
+    </objects>
+</document>
