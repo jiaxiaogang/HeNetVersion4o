@@ -64,15 +64,27 @@
 }
 
 -(void) setDataWithNodeData:(id)nodeData{
-    if (![self.nodeArr containsObject:nodeData]) {
-        [self.nodeArr addObject:nodeData];
-        [self refreshDisplayWithNodeData:nodeData];
+    if (nodeData) {
+        [self setDataWithNodeDatas:@[nodeData]];
     }
 }
 
--(void) refreshDisplayWithNodeData:(id)nodeData{
+-(void) setDataWithNodeDatas:(NSArray*)nodeDatas{
+    NSMutableArray *validDatas = [[NSMutableArray alloc] init];
+    if (ARRISOK(nodeDatas)) {
+        for (id item in nodeDatas) {
+            if (![self.nodeArr containsObject:item]) {
+                [self.nodeArr addObject:item];
+                [validDatas addObject:item];
+            }
+        }
+        [self refreshDisplayWithNodeDatas:validDatas];
+    }
+}
+
+-(void) refreshDisplayWithNodeDatas:(NSArray*)nodeDatas{
     //1. 显示新节点
-    if (nodeData) {
+    for (id nodeData in ARRTOOK(nodeDatas)) {
         NVNodeView *nodeView = [[NVNodeView alloc] init];
         nodeView.delegate = self;
         [nodeView setDataWithNodeData:nodeData];
@@ -84,6 +96,17 @@
     
     //3. 重绘关联线
     [self refreshDisplay_Line];
+}
+
+-(void) clear{
+    //1. 清数据
+    [self.nodeArr removeAllObjects];
+    
+    //2. 清节点
+    NSArray *nodeViews = ARRTOOK([self subViews_AllDeepWithClass:NVNodeView.class]);
+    for (NVNodeView *nodeView in nodeViews) {
+        [nodeView removeFromSuperview];
+    }
 }
 
 //MARK:===============================================================
@@ -130,13 +153,26 @@
     
     //3. 根据编号计算坐标;
     NSArray *nodeViews = ARRTOOK([self subViews_AllDeepWithClass:NVNodeView.class]);
+    CGFloat layerSpace = 57;//层间距
+    CGFloat xSpace = 13;    //节点横间距
+    CGFloat nodeSize = 15;  //节点大小
+    
+    //4. 同层计数器 (本层节点个数)
+    NSMutableDictionary *yLayerCountDic = [[NSMutableDictionary alloc] init];
     for (NVNodeView *nodeView in nodeViews) {
+        //5. 取xIndex和yIndex;
         NSData *key = [NSKeyedArchiver archivedDataWithRootObject:nodeView.data];
         NSInteger x = [NUMTOOK([xDic objectForKey:key]) integerValue];
         NSInteger y = [NUMTOOK([yDic objectForKey:key]) integerValue];
-        float spaceX = MIN(15, self.width / xDic.count);//最大15,最小平均;
+        
+        //6. 同层y值偏移量 (交错3 & 偏移8)
+        NSInteger layerCount = [NUMTOOK([yLayerCountDic objectForKey:@(y)]) intValue];
+        [yLayerCountDic setObject:@(layerCount + 1) forKey:@(y)];
+        
+        //7. 节点坐标
+        float spaceX = MIN(xSpace, self.width / xDic.count);
         nodeView.x = x * spaceX;
-        nodeView.y = (self.height - 15) - y * 37;
+        nodeView.y = (self.height - nodeSize) - (y * layerSpace) - (layerCount % 3) * 8;
     }
 }
 
@@ -282,29 +318,47 @@
     [self moduleView_DrawLine:lineDatas];
 }
 
+//MARK:===============================================================
+//MARK:                     < onclick >
+//MARK:===============================================================
+- (IBAction)clearBtnOnClick:(id)sender {
+    //1. 清线
+    [self.delegate moduleView_ClearLine:self.nodeArr];
+    
+    //2. 清数据和节点
+    [self clear];
+}
+
 /**
  *  MARK:--------------------NVNodeViewDelegate--------------------
  */
 -(UIView *)nodeView_GetCustomSubView:(id)nodeData{
     return [self moduleView_GetCustomSubView:nodeData];
 }
+-(UIColor *)nodeView_GetNodeColor:(id)nodeData{
+    return [self moduleView_GetNodeColor:nodeData];
+}
 -(NSString*) nodeView_GetTipsDesc:(id)nodeData{
     return [self moduleView_GetTipsDesc:nodeData];
 }
 -(void) nodeView_TopClick:(id)nodeData{
     NSArray *absNodeDatas = [self moduleView_AbsNodeDatas:nodeData];
+    [self setDataWithNodeDatas:absNodeDatas];
     NSLog(@"%@",absNodeDatas);
 }
 -(void) nodeView_BottomClick:(id)nodeData{
     NSArray *conNodeDatas = [self moduleView_ConNodeDatas:nodeData];
+    [self setDataWithNodeDatas:conNodeDatas];
     NSLog(@"%@",conNodeDatas);
 }
 -(void) nodeView_LeftClick:(id)nodeData{
     NSArray *contentNodeDatas = [self moduleView_ContentNodeDatas:nodeData];
+    [self.delegate moduleView_SetNetDatas:contentNodeDatas];
     NSLog(@"%@",contentNodeDatas);
 }
 -(void) nodeView_RightClick:(id)nodeData{
     NSArray *refNodeDatas = [self moduleView_RefNodeDatas:nodeData];
+    [self.delegate moduleView_SetNetDatas:refNodeDatas];
     NSLog(@"%@",refNodeDatas);
 }
 
@@ -317,7 +371,12 @@
     }
     return nil;
 }
-
+-(UIColor *)moduleView_GetNodeColor:(id)nodeData{
+    if (self.delegate && [self.delegate respondsToSelector:@selector(moduleView_GetNodeColor:)]) {
+        return [self.delegate moduleView_GetNodeColor:nodeData];
+    }
+    return nil;
+}
 -(NSString*)moduleView_GetTipsDesc:(id)nodeData{
     if (self.delegate && [self.delegate respondsToSelector:@selector(moduleView_GetTipsDesc:)]) {
         return [self.delegate moduleView_GetTipsDesc:nodeData];

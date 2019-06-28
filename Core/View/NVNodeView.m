@@ -52,10 +52,12 @@
     }];
     
     //btn
-    [self.leftBtn.layer setCornerRadius:2.5f];
-    [self.rightBtn.layer setCornerRadius:2.5f];
-    [self.topBtn.layer setCornerRadius:2.5f];
-    [self.bottomBtn.layer setCornerRadius:2.5f];
+    NSArray *btns = @[self.topBtn,self.bottomBtn,self.leftBtn,self.rightBtn];
+    for (UIButton *btn in btns) {
+        [btn.layer setCornerRadius:5.5f];
+        [btn.layer setBorderWidth:1.0f / UIScreen.mainScreen.scale];
+        [btn.layer setBorderColor:[UIColor grayColor].CGColor];
+    }
 }
 
 -(void) initDisplay{
@@ -85,6 +87,12 @@
         [self.containerView sendSubviewToBack:self.customSubView];
         [self.customSubView setUserInteractionEnabled:false];
     }
+    
+    //5. nodeColor
+    UIColor *nodeColor = [self nodeView_GetNodeColor:self.data];
+    if (nodeColor) {
+        [self.containerView setBackgroundColor:nodeColor];
+    }
 }
 
 //MARK:===============================================================
@@ -92,26 +100,26 @@
 //MARK:===============================================================
 - (IBAction)contentViewTouchDown:(id)sender {
     NSString *desc = [self nodeView_GetTipsDesc:self.data];
-    NSLog(@"按下:%@",desc);
+    TPLog(@"> %@", desc);
 }
 - (IBAction)contentViewTouchCancel:(id)sender {
-    NSLog(@"松开");
+    TPLog(@"松开");
 }
 - (IBAction)topBtnOnClick:(id)sender {
     [self nodeView_TopClick:self.data];
-    NSLog(@"absPorts");
+    TPLog(@"absPorts");
 }
 - (IBAction)bottomBtnOnClick:(id)sender {
     [self nodeView_BottomClick:self.data];
-    NSLog(@"conPorts");
+    TPLog(@"conPorts");
 }
 - (IBAction)leftBtnOnClick:(id)sender {
     [self nodeView_LeftClick:self.data];
-    NSLog(@"content");
+    TPLog(@"content");
 }
 - (IBAction)rightBtnOnClick:(id)sender {
     [self nodeView_RightClick:self.data];
-    NSLog(@"refPorts");
+    TPLog(@"refPorts");
 }
 
 //MARK:===============================================================
@@ -120,6 +128,12 @@
 -(UIView*) nodeView_GetCustomSubView:(id)nodeData{
     if (self.delegate && [self.delegate respondsToSelector:@selector(nodeView_GetCustomSubView:)]) {
         return [self.delegate nodeView_GetCustomSubView:nodeData];
+    }
+    return nil;
+}
+-(UIColor*) nodeView_GetNodeColor:(id)nodeData{
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nodeView_GetNodeColor:)]) {
+        return [self.delegate nodeView_GetNodeColor:nodeData];
     }
     return nil;
 }

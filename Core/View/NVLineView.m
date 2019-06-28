@@ -33,7 +33,8 @@
 -(void) initView{
     //self
     [self setBackgroundColor:[UIColor clearColor]];
-    self.height = 1;
+    self.height = 1.0f / UIScreen.mainScreen.scale;
+    [self setUserInteractionEnabled:false];
     
     //containerView
     [[NSBundle mainBundle] loadNibNamed:NSStringFromClass(self.class) owner:self options:nil];
@@ -44,6 +45,7 @@
         make.top.mas_equalTo(self);
         make.bottom.mas_equalTo(self);
     }];
+    [self.containerView setAlpha:0.3f];
 }
 
 -(void) initData{

@@ -13,6 +13,9 @@
 //获取自定义nodeView
 -(UIView *)moduleView_GetCustomSubView:(id)nodeData;
 
+//获取节点颜色
+-(UIColor *)moduleView_GetNodeColor:(id)nodeData;
+
 //获取节点描述
 -(NSString*)moduleView_GetTipsDesc:(id)nodeData;
 
@@ -31,8 +34,14 @@
 //获取所有网络中的节点数据 (判定关联)
 -(NSArray*)moduleView_GetAllNetDatas;
 
+//向可视化中,追加datas;
+-(void)moduleView_SetNetDatas:(NSArray*)datas;
+
 //获取所有网络中的节点数据 (判定关联)
 -(void)moduleView_DrawLine:(NSArray*)lineDatas;
+
+//清除所有网络中的有关的线
+-(void)moduleView_ClearLine:(NSArray*)datas;
 
 @end
 
@@ -47,5 +56,7 @@
 @property (weak, nonatomic) id<NVModuleViewDelegate> delegate;
 -(void) setDataWithModuleId:(NSString*)moduleId;
 -(void) setDataWithNodeData:(id)nodeData;
+-(void) setDataWithNodeDatas:(NSArray*)nodeDatas;
+-(void) clear;
 
 @end

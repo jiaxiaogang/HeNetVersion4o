@@ -21,6 +21,7 @@
 @property (assign, nonatomic) BOOL isOpen;
 @property (weak, nonatomic) IBOutlet UIButton *openCloseBtn;
 @property (strong, nonatomic) id<NVViewDelegate> delegate;
+@property (strong, nonatomic) UIView *contentView;
 
 @end
 
@@ -39,7 +40,7 @@
 
 -(void) initView{
     //self
-    [self setFrame:CGRectMake(0, 20, ScreenWidth, 20)];
+    [self setFrame:CGRectMake(ScreenWidth - 40, 20, 40, 20)];
     
     //containerView
     [[NSBundle mainBundle] loadNibNamed:NSStringFromClass(self.class) owner:self options:nil];
@@ -58,22 +59,27 @@
     [self.scrollView setShowsVerticalScrollIndicator:NO];
     [self.scrollView setShowsHorizontalScrollIndicator:NO];
     
+    //contentView
+    self.contentView = [[UIView alloc] init];
+    [self.scrollView addSubview:self.contentView];
+    [self.contentView setBackgroundColor:[UIColor clearColor]];
+    
     //moduleViews
     NSArray *moduleIds = [self nv_GetModuleIds];
     if (ARRISOK(moduleIds)) {
         CGFloat curModuleX = 2;
         CGFloat moduleW = 300;
         CGFloat moduleH = 276;
-        [self.scrollView removeAllSubviews];
         for (NSString *moduleId in moduleIds) {
             NVModuleView *moduleView = [[NVModuleView alloc] init];
             moduleView.delegate = self;
             [moduleView setDataWithModuleId:moduleId];
             [moduleView setFrame:CGRectMake(curModuleX, 2, moduleW, moduleH)];
-            [self.scrollView addSubview:moduleView];
+            [self.contentView addSubview:moduleView];
             curModuleX += (moduleW + 2);
         }
         [self.scrollView setContentSize:CGSizeMake(curModuleX, 276)];
+        [self.contentView setFrame:CGRectMake(0, 0, curModuleX, 276)];
     }
 }
 
@@ -89,19 +95,52 @@
 //MARK:===============================================================
 -(void) setNodeData:(id)nodeData{
     if (nodeData) {
-        NVModuleView *mView = [self getNVModuleView:nodeData];
+        [self setNodeDatas:@[nodeData]];
+    }
+}
+
+-(void) setNodeDatas:(NSArray*)nodeDatas{
+    //1. 数据准备
+    nodeDatas = ARRTOOK(nodeDatas);
+    NSMutableDictionary *dic = [[NSMutableDictionary alloc] init];
+    
+    //2. 分组
+    for (id data in nodeDatas) {
+        NSString *mId = STRTOOK([self nv_GetModuleId:data]);
+        NSMutableArray *mArr = [[NSMutableArray alloc] initWithArray:[dic objectForKey:mId]];
+        [mArr addObject:data];
+        [dic setObject:mArr forKey:mId];
+    }
+    
+    //3. 显示
+    for (NSString *mId in dic.allKeys) {
+        NVModuleView *mView = [self getNVModuleViewWithModuleId:mId];
         if (mView) {
-            [mView setDataWithNodeData:nodeData];
+            [mView setDataWithNodeDatas:[dic objectForKey:mId]];
         }
+    }
+}
+
+-(void) clear{
+    //1. 清模块
+    NSArray *mViews = ARRTOOK([self subViews_AllDeepWithClass:NVModuleView.class]);
+    for (NVModuleView *mView in mViews) {
+        [mView clear];
+    }
+    
+    //2. 清线
+    NSArray *lViews = ARRTOOK([self subViews_AllDeepWithClass:NVLineView.class]);
+    for (NVLineView *lView in lViews) {
+        [lView removeFromSuperview];
     }
 }
 
 /**
  *  MARK:--------------------获取nodeData所属的模块--------------------
  */
--(NVModuleView*) getNVModuleView:(id)nodeData{
-    NSString *moduleId = STRTOOK([self nv_GetModuleId:nodeData]);
-    for (NVModuleView *mView in self.scrollView.subviews) {
+-(NVModuleView*) getNVModuleViewWithModuleId:(NSString*)moduleId{
+    moduleId = STRTOOK(moduleId);
+    for (NVModuleView *mView in self.contentView.subviews) {
         if (ISOK(mView, NVModuleView.class) && [moduleId isEqualToString:mView.moduleId]) {
             return mView;
         }
@@ -115,7 +154,12 @@
 - (IBAction)openCloseBtnOnClick:(id)sender {
     self.isOpen = !self.isOpen;
     self.height = self.isOpen ? 300 : 20;
-    [self.openCloseBtn setTitle:(self.isOpen ? @"收起" : @"放开") forState:UIControlStateNormal];
+    self.x = self.isOpen ? 0 : ScreenWidth - 40;
+    self.width = self.isOpen ? ScreenWidth : 40;
+    [self.openCloseBtn setTitle:(self.isOpen ? @"一" : @"口") forState:UIControlStateNormal];
+}
+- (IBAction)clearBtnOnClick:(id)sender {
+    [self clear];
 }
 
 /**
@@ -123,6 +167,10 @@
  */
 -(UIView *)moduleView_GetCustomSubView:(id)nodeData{
     return [self nv_GetCustomSubNodeView:nodeData];
+}
+
+-(UIColor *)moduleView_GetNodeColor:(id)nodeData{
+    return [self nv_GetNodeColor:nodeData];
 }
 
 -(NSString*)moduleView_GetTipsDesc:(id)nodeData{
@@ -154,6 +202,10 @@
     return netDatas;
 }
 
+-(void)moduleView_SetNetDatas:(NSArray*)datas{
+    [self setNodeDatas:datas];
+}
+
 -(void)moduleView_DrawLine:(NSArray*)lineDatas{
     //1. 数据准备
     lineDatas = ARRTOOK(lineDatas);
@@ -180,9 +232,9 @@
             CGPoint pointB = CGPointZero;
             for (NVNodeView *nView in nodeViews) {
                 if ([dataA isEqual:nView.data]) {
-                    pointA = [nView.superview convertPoint:nView.center toView:self.scrollView];
+                    pointA = [nView.superview convertPoint:nView.center toView:self.contentView];
                 }else if([dataB isEqual:nView.data]){
-                    pointB = [nView.superview convertPoint:nView.center toView:self.scrollView];
+                    pointB = [nView.superview convertPoint:nView.center toView:self.contentView];
                 }
             }
             
@@ -204,9 +256,22 @@
                 [lView.layer setTransform:CATransform3DMakeRotation(angle, 0, 0, 1)];
                 lView.center = CGPointMake(centerX, centerY);
                 [lView setDataWithDataA:dataA dataB:dataB];
-                [self.scrollView addSubview:lView];
-                //[self.scrollView sendSubviewToBack:lView];
-                //NSLog(@"drawLine A坐标:%f,%f B坐标:%f,%f line坐标:%f,%f line长度:%f line角度:%f",pointA.x,pointA.y,pointB.x,pointB.y,lView.x,lView.y,lView.width,angle * 180.0f / M_PI);
+                [self.contentView addSubview:lView];
+            }
+        }
+    }
+}
+
+-(void)moduleView_ClearLine:(NSArray*)datas{
+    //1. 数据准备
+    datas = ARRTOOK(datas);
+    NSArray *lineViews = ARRTOOK([self subViews_AllDeepWithClass:NVLineView.class]);
+    
+    //2. 遍历找到含有nodeData的线,并清除
+    for (NSArray *nodeData in datas) {
+        for (NVLineView *lView in lineViews) {
+            if ([lView.data containsObject:nodeData]) {
+                [lView removeFromSuperview];
             }
         }
     }
@@ -218,6 +283,12 @@
 -(UIView *)nv_GetCustomSubNodeView:(id)nodeData{
     if (self.delegate && [self.delegate respondsToSelector:@selector(nv_GetCustomSubNodeView:)]) {
         return [self.delegate nv_GetCustomSubNodeView:nodeData];
+    }
+    return nil;
+}
+- (UIColor *)nv_GetNodeColor:(id)nodeData{
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_GetNodeColor:)]) {
+        return [self.delegate nv_GetNodeColor:nodeData];
     }
     return nil;
 }
