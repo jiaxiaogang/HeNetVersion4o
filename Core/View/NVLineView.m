@@ -7,14 +7,10 @@
 //
 
 #import "NVLineView.h"
-#import "MASConstraint.h"
-#import "View+MASAdditions.h"
-#import "NVNodeView.h"
-#import "NodeCompareModel.h"
 
 @interface NVLineView ()
 
-@property (strong,nonatomic) IBOutlet UIView *containerView;
+@property (strong,nonatomic) UIView *containerView;
 
 @end
 
@@ -33,18 +29,14 @@
 -(void) initView{
     //self
     [self setBackgroundColor:[UIColor clearColor]];
-    self.height = 1.0f / UIScreen.mainScreen.scale;
+    self.height = 1.0f;//1.0f / UIScreen.mainScreen.scale;
     [self setUserInteractionEnabled:false];
+    [self.layer setMasksToBounds:true];
     
     //containerView
-    [[NSBundle mainBundle] loadNibNamed:NSStringFromClass(self.class) owner:self options:nil];
+    self.containerView = [[UIView alloc] init];
+    [self.containerView setBackgroundColor:[UIColor redColor]];
     [self addSubview:self.containerView];
-    [self.containerView mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.leading.mas_equalTo(self);
-        make.trailing.mas_equalTo(self);
-        make.top.mas_equalTo(self);
-        make.bottom.mas_equalTo(self);
-    }];
     [self.containerView setAlpha:0.3f];
 }
 
@@ -75,6 +67,11 @@
 
 -(void) refreshDisplay{
     
+}
+
+-(void)setFrame:(CGRect)frame{
+    [super setFrame:frame];
+    [self.containerView setFrame:CGRectMake(10, 0, self.width - 20, self.height)];
 }
 
 @end

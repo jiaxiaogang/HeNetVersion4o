@@ -9,15 +9,19 @@
 #import "NVNodeView.h"
 #import "MASConstraint.h"
 #import "View+MASAdditions.h"
+#import "BorderLabel.h"
 
 @interface NVNodeView ()
 
-@property (strong,nonatomic) IBOutlet UIControl *containerView;
+@property (strong,nonatomic) IBOutlet UIView *containerView;
+@property (weak, nonatomic) IBOutlet UIControl *contentView;
 @property (strong, nonatomic) UIView *customSubView;
 @property (weak, nonatomic) IBOutlet UIButton *topBtn;
 @property (weak, nonatomic) IBOutlet UIButton *bottomBtn;
 @property (weak, nonatomic) IBOutlet UIButton *leftBtn;
 @property (weak, nonatomic) IBOutlet UIButton *rightBtn;
+@property (weak, nonatomic) IBOutlet BorderLabel *lightLab;
+@property (weak, nonatomic) IBOutlet UILabel *titleLab;
 
 @end
 
@@ -35,11 +39,7 @@
 -(void) initView{
     //self
     [self setBackgroundColor:[UIColor clearColor]];
-    [self setFrame:CGRectMake(0, 0, 15, 15)];
-    [self.layer setMasksToBounds:true];
-    [self.layer setCornerRadius:7.5f];
-    [self.layer setBorderColor:UIColorWithRGBHex(0xAAAAAA).CGColor];
-    [self.layer setBorderWidth:1];
+    [self setFrame:CGRectMake(0, 0, 20, 20)];
     
     //containerView
     [[NSBundle mainBundle] loadNibNamed:NSStringFromClass(self.class) owner:self options:nil];
@@ -51,13 +51,24 @@
         make.bottom.mas_equalTo(self);
     }];
     
+    //contentView
+    [self.contentView.layer setMasksToBounds:true];
+    [self.contentView.layer setCornerRadius:10];
+    [self.contentView.layer setBorderColor:UIColorWithRGBHex(0xAAAAAA).CGColor];
+    [self.contentView.layer setBorderWidth:1];
+    
     //btn
     NSArray *btns = @[self.topBtn,self.bottomBtn,self.leftBtn,self.rightBtn];
     for (UIButton *btn in btns) {
-        [btn.layer setCornerRadius:5.5f];
+        [btn.layer setCornerRadius:8];
         [btn.layer setBorderWidth:1.0f / UIScreen.mainScreen.scale];
         [btn.layer setBorderColor:[UIColor grayColor].CGColor];
     }
+    
+    //ligthLab
+    [self.lightLab setUserInteractionEnabled:false];
+    self.lightLab.borderColor = [UIColor whiteColor];
+    self.lightLab.borderWidth = 3.0f / [UIScreen mainScreen].scale;
 }
 
 -(void) initDisplay{
@@ -91,7 +102,30 @@
     //5. nodeColor
     UIColor *nodeColor = [self nodeView_GetNodeColor:self.data];
     if (nodeColor) {
-        [self.containerView setBackgroundColor:nodeColor];
+        [self.contentView setBackgroundColor:nodeColor];
+    }
+    
+    //6. nodeAlpha
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nodeView_GetNodeAlpha:)]) {
+        CGFloat alpha = [self.delegate nodeView_GetNodeAlpha:self.data];
+        [self.contentView setAlpha:alpha];
+    }
+}
+
+-(void) light:(NSString*)lightStr{
+    [self.lightLab setText:lightStr];
+}
+
+-(void) clearLight{
+    [self.lightLab setText:@""];
+}
+
+-(void) setTitle:(NSString*)titleStr showTime:(CGFloat)showTime {
+    [self.titleLab setText:titleStr];
+    if (showTime > 0) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(showTime * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [self.titleLab setText:@""];
+        });
     }
 }
 
@@ -99,27 +133,25 @@
 //MARK:                     < onClick >
 //MARK:===============================================================
 - (IBAction)contentViewTouchDown:(id)sender {
-    NSString *desc = [self nodeView_GetTipsDesc:self.data];
-    TPLog(@"> %@", desc);
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nodeView_OnClick:)]) {
+        NSString *desc = [self.delegate nodeView_OnClick:self.data];
+        TPLog(@"> %@", desc);
+    }
 }
 - (IBAction)contentViewTouchCancel:(id)sender {
     TPLog(@"松开");
 }
 - (IBAction)topBtnOnClick:(id)sender {
     [self nodeView_TopClick:self.data];
-    TPLog(@"absPorts");
 }
 - (IBAction)bottomBtnOnClick:(id)sender {
     [self nodeView_BottomClick:self.data];
-    TPLog(@"conPorts");
 }
 - (IBAction)leftBtnOnClick:(id)sender {
     [self nodeView_LeftClick:self.data];
-    TPLog(@"content");
 }
 - (IBAction)rightBtnOnClick:(id)sender {
     [self nodeView_RightClick:self.data];
-    TPLog(@"refPorts");
 }
 
 //MARK:===============================================================
@@ -134,12 +166,6 @@
 -(UIColor*) nodeView_GetNodeColor:(id)nodeData{
     if (self.delegate && [self.delegate respondsToSelector:@selector(nodeView_GetNodeColor:)]) {
         return [self.delegate nodeView_GetNodeColor:nodeData];
-    }
-    return nil;
-}
--(NSString*) nodeView_GetTipsDesc:(id)nodeData{
-    if (self.delegate && [self.delegate respondsToSelector:@selector(nodeView_GetTipsDesc:)]) {
-        return [self.delegate nodeView_GetTipsDesc:nodeData];
     }
     return nil;
 }

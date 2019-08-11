@@ -101,6 +101,7 @@
 
 -(void) setNodeDatas:(NSArray*)nodeDatas{
     //1. 数据准备
+    if (!self.isOpen) return;
     nodeDatas = ARRTOOK(nodeDatas);
     NSMutableDictionary *dic = [[NSMutableDictionary alloc] init];
     
@@ -132,6 +133,35 @@
     NSArray *lViews = ARRTOOK([self subViews_AllDeepWithClass:NVLineView.class]);
     for (NVLineView *lView in lViews) {
         [lView removeFromSuperview];
+    }
+}
+
+-(void) lightNode:(id)nodeData str:(NSString*)str{
+    if (nodeData) {
+        NSArray *nvs = ARRTOOK([self subViews_AllDeepWithClass:NVNodeView.class]);
+        for (NVNodeView *nv in nvs) {
+            if ([nodeData isEqual:nv.data]) {
+                [nv light:str];
+            }
+        }
+    }
+}
+
+-(void) clearLight{
+    [self clearLightFromParentView:self];
+}
+
+-(void) clearLight:(NSString*)moduleId{
+    NVModuleView *mView = [self getNVModuleViewWithModuleId:moduleId];
+    [self clearLightFromParentView:mView];
+}
+
+-(void) clearLightFromParentView:(UIView*)parentView{
+    if (parentView) {
+        NSArray *nvs = ARRTOOK([parentView subViews_AllDeepWithClass:NVNodeView.class]);
+        for (NVNodeView *nv in nvs) {
+            [nv clearLight];
+        }
     }
 }
 
@@ -169,31 +199,59 @@
  *  MARK:--------------------NVModuleViewDelegate--------------------
  */
 -(UIView *)moduleView_GetCustomSubView:(id)nodeData{
-    return [self nv_GetCustomSubNodeView:nodeData];
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_GetCustomSubNodeView:)]) {
+        return [self.delegate nv_GetCustomSubNodeView:nodeData];
+    }
+    return nil;
 }
 
 -(UIColor *)moduleView_GetNodeColor:(id)nodeData{
-    return [self nv_GetNodeColor:nodeData];
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_GetNodeColor:)]) {
+        return [self.delegate nv_GetNodeColor:nodeData];
+    }
+    return nil;
 }
 
--(NSString*)moduleView_GetTipsDesc:(id)nodeData{
-    return [self nv_GetNodeTipsDesc:nodeData];
+-(CGFloat)moduleView_GetNodeAlpha:(id)nodeData{
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_GetNodeAlpha:)]) {
+        return [self.delegate nv_GetNodeAlpha:nodeData];
+    }
+    return 1.0f;
+}
+
+-(NSString*)moduleView_NodeOnClick:(id)nodeData{
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_NodeOnClick:)]) {
+        return [self.delegate nv_NodeOnClick:nodeData];
+    }
+    return nil;
 }
 
 -(NSArray*)moduleView_AbsNodeDatas:(id)nodeData{
-    return [self nv_AbsNodeDatas:nodeData];
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_AbsNodeDatas:)]) {
+        return [self.delegate nv_AbsNodeDatas:nodeData];
+    }
+    return nil;
 }
 
 -(NSArray*)moduleView_ConNodeDatas:(id)nodeData{
-    return [self nv_ConNodeDatas:nodeData];
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_ConNodeDatas:)]) {
+        return [self.delegate nv_ConNodeDatas:nodeData];
+    }
+    return nil;
 }
 
 -(NSArray*)moduleView_ContentNodeDatas:(id)nodeData{
-    return [self nv_ContentNodeDatas:nodeData];
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_ContentNodeDatas:)]) {
+        return [self.delegate nv_ContentNodeDatas:nodeData];
+    }
+    return nil;
 }
 
 -(NSArray*)moduleView_RefNodeDatas:(id)nodeData{
-    return [self nv_GetRefNodeDatas:nodeData];
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_GetRefNodeDatas:)]) {
+        return [self.delegate nv_GetRefNodeDatas:nodeData];
+    }
+    return nil;
 }
 
 -(NSArray*)moduleView_GetAllNetDatas{
@@ -223,14 +281,33 @@
         id dataB = ARR_INDEX(lineData, 1);
         if (dataA && dataB) {
             
-            //4. 去掉旧有线
+            //4. 是否有旧的
+            BOOL find = false;
             for (NVLineView *lView in lineViews) {
                 if ([lView.data containsObject:dataA] && [lView.data containsObject:dataB]) {
-                    [lView removeFromSuperview];
+                    find = true;
                 }
             }
             
-            //5. 获取两端的坐标
+            //5. draw
+            if (!find) {
+                NVLineView *lView = [[NVLineView alloc] init];
+                [lView setDataWithDataA:dataA dataB:dataB];
+                [self.contentView addSubview:lView];
+            }
+        }
+    }
+    
+    //6. 逐根修正坐标
+    lineViews = ARRTOOK([self subViews_AllDeepWithClass:NVLineView.class]);
+    for (NVLineView *lView in lineViews) {
+        
+        //7. 准备两端的数据
+        id dataA = ARR_INDEX(lView.data, 0);
+        id dataB = ARR_INDEX(lView.data, 1);
+        if (dataA && dataB) {
+            
+            //8. 获取两端的坐标
             CGPoint pointA = CGPointZero;
             CGPoint pointB = CGPointZero;
             for (NVNodeView *nView in nodeViews) {
@@ -241,25 +318,23 @@
                 }
             }
             
-            //6. 画线
+            //9. 画线
             if (!CGPointEqualToPoint(pointA, CGPointZero) && !CGPointEqualToPoint(pointB, CGPointZero)) {
-                //7. 计算线长度
+                //10. 计算线长度
                 float width = [NVViewUtil distancePoint:pointA second:pointB];
                 
-                //8. 计算线中心位置
+                //11. 计算线中心位置
                 float centerX = (pointA.x + pointB.x) / 2.0f;
                 float centerY = (pointA.y + pointB.y) / 2.0f;
                 
-                //9. 旋转角度
+                //12. 旋转角度
                 CGFloat angle = [NVViewUtil anglePoint:pointA second:pointB];
                 
-                //10. draw
-                NVLineView *lView = [[NVLineView alloc] init];
+                //13. draw
+                [lView.layer setTransform:CATransform3DMakeRotation(0, 0, 0, 1)];
                 lView.width = width;
                 [lView.layer setTransform:CATransform3DMakeRotation(angle, 0, 0, 1)];
                 lView.center = CGPointMake(centerX, centerY);
-                [lView setDataWithDataA:dataA dataB:dataB];
-                [self.contentView addSubview:lView];
             }
         }
     }
@@ -280,27 +355,16 @@
     }
 }
 
+-(NSString*)moduleView_ShowName:(id)data{
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_ShowName:)]) {
+        return [self.delegate nv_ShowName:data];
+    }
+    return nil;
+}
+
 //MARK:===============================================================
 //MARK:                     < SelfDelegate >
 //MARK:===============================================================
--(UIView *)nv_GetCustomSubNodeView:(id)nodeData{
-    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_GetCustomSubNodeView:)]) {
-        return [self.delegate nv_GetCustomSubNodeView:nodeData];
-    }
-    return nil;
-}
-- (UIColor *)nv_GetNodeColor:(id)nodeData{
-    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_GetNodeColor:)]) {
-        return [self.delegate nv_GetNodeColor:nodeData];
-    }
-    return nil;
-}
--(NSString*)nv_GetNodeTipsDesc:(id)nodeData{
-    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_GetNodeTipsDesc:)]) {
-        return [self.delegate nv_GetNodeTipsDesc:nodeData];
-    }
-    return nil;
-}
 -(NSArray*)nv_GetModuleIds{
     if (self.delegate && [self.delegate respondsToSelector:@selector(nv_GetModuleIds)]) {
         return [self.delegate nv_GetModuleIds];
@@ -310,30 +374,6 @@
 -(NSString*)nv_GetModuleId:(id)nodeData{
     if (self.delegate && [self.delegate respondsToSelector:@selector(nv_GetModuleId:)]) {
         return [self.delegate nv_GetModuleId:nodeData];
-    }
-    return nil;
-}
--(NSArray*)nv_GetRefNodeDatas:(id)nodeData{
-    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_GetRefNodeDatas:)]) {
-        return [self.delegate nv_GetRefNodeDatas:nodeData];
-    }
-    return nil;
-}
--(NSArray*)nv_ContentNodeDatas:(id)nodeData{
-    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_ContentNodeDatas:)]) {
-        return [self.delegate nv_ContentNodeDatas:nodeData];
-    }
-    return nil;
-}
--(NSArray*)nv_AbsNodeDatas:(id)nodeData{
-    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_AbsNodeDatas:)]) {
-        return [self.delegate nv_AbsNodeDatas:nodeData];
-    }
-    return nil;
-}
--(NSArray*)nv_ConNodeDatas:(id)nodeData{
-    if (self.delegate && [self.delegate respondsToSelector:@selector(nv_ConNodeDatas:)]) {
-        return [self.delegate nv_ConNodeDatas:nodeData];
     }
     return nil;
 }

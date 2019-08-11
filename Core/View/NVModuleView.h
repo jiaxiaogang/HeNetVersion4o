@@ -16,8 +16,11 @@
 //获取节点颜色
 -(UIColor *)moduleView_GetNodeColor:(id)nodeData;
 
+//获取节点透明度
+-(CGFloat)moduleView_GetNodeAlpha:(id)nodeData;
+
 //获取节点描述
--(NSString*)moduleView_GetTipsDesc:(id)nodeData;
+-(NSString*)moduleView_NodeOnClick:(id)nodeData;
 
 //获取节点的抽象序列
 -(NSArray*)moduleView_AbsNodeDatas:(id)nodeData;
@@ -42,6 +45,9 @@
 
 //清除所有网络中的有关的线
 -(void)moduleView_ClearLine:(NSArray*)datas;
+
+//报名
+-(NSString*)moduleView_ShowName:(id)data;
 
 @end
 
