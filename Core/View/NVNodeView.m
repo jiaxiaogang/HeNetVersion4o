@@ -10,18 +10,21 @@
 #import "MASConstraint.h"
 #import "View+MASAdditions.h"
 #import "BorderLabel.h"
+#import "NVConfig.h"
+#import "NVViewUtil.h"
 
 @interface NVNodeView ()
 
 @property (strong,nonatomic) IBOutlet UIView *containerView;
 @property (weak, nonatomic) IBOutlet UIControl *contentView;
 @property (strong, nonatomic) UIView *customSubView;
-@property (weak, nonatomic) IBOutlet UIButton *topBtn;
-@property (weak, nonatomic) IBOutlet UIButton *bottomBtn;
-@property (weak, nonatomic) IBOutlet UIButton *leftBtn;
-@property (weak, nonatomic) IBOutlet UIButton *rightBtn;
+@property (strong, nonatomic) UIButton *topBtn;
+@property (strong, nonatomic) UIButton *bottomBtn;
+@property (strong, nonatomic) UIButton *leftBtn;
+@property (strong, nonatomic) UIButton *rightBtn;
 @property (weak, nonatomic) IBOutlet BorderLabel *lightLab;
 @property (weak, nonatomic) IBOutlet UILabel *titleLab;
+@property (strong, nonatomic) UIView *touchMoveView;
 
 @end
 
@@ -39,7 +42,7 @@
 -(void) initView{
     //self
     [self setBackgroundColor:[UIColor clearColor]];
-    [self setFrame:CGRectMake(0, 0, 20, 20)];
+    [self setFrame:CGRectMake(0, 0, cNodeSize, cNodeSize)];
     
     //containerView
     [[NSBundle mainBundle] loadNibNamed:NSStringFromClass(self.class) owner:self options:nil];
@@ -53,22 +56,45 @@
     
     //contentView
     [self.contentView.layer setMasksToBounds:true];
-    [self.contentView.layer setCornerRadius:10];
+    [self.contentView.layer setCornerRadius:cNodeSize * 0.5f];
     [self.contentView.layer setBorderColor:UIColorWithRGBHex(0xAAAAAA).CGColor];
     [self.contentView.layer setBorderWidth:1];
     
-    //btn
-    NSArray *btns = @[self.topBtn,self.bottomBtn,self.leftBtn,self.rightBtn];
-    for (UIButton *btn in btns) {
-        [btn.layer setCornerRadius:8];
-        [btn.layer setBorderWidth:1.0f / UIScreen.mainScreen.scale];
-        [btn.layer setBorderColor:[UIColor grayColor].CGColor];
-    }
+    //edgeBtnSize
+    CGFloat btnW = cNodeSize * 0.6f;
+    CGFloat btnL = cNodeSize * 0.8f;
+    CGFloat btnMargin = (cNodeSize - btnL) * 0.5f;
+    CGRect leftF = CGRectMake(btnW * -0.5f, btnMargin, btnW, btnL);
+    CGRect rightF = CGRectMake(cNodeSize + btnW * -0.5f,btnMargin, btnW, btnL);
+    CGRect topF = CGRectMake(btnMargin,btnW * -0.5f,btnL,btnW);
+    CGRect bottomF = CGRectMake(btnMargin,btnW * -0.5f + cNodeSize,btnL,btnW);
+    
+    //createEdgeBtn
+    self.leftBtn = [self createEdgeBtn:leftF onClick:@selector(leftBtnOnClick:)];
+    self.rightBtn = [self createEdgeBtn:rightF onClick:@selector(rightBtnOnClick:)];
+    self.topBtn = [self createEdgeBtn:topF onClick:@selector(topBtnOnClick:)];
+    self.bottomBtn = [self createEdgeBtn:bottomF onClick:@selector(bottomBtnOnClick:)];
     
     //ligthLab
     [self.lightLab setUserInteractionEnabled:false];
     self.lightLab.borderColor = [UIColor whiteColor];
     self.lightLab.borderWidth = 3.0f / [UIScreen mainScreen].scale;
+    
+    if (!isSimulator) {
+        [self.contentView setUserInteractionEnabled:false];
+        [self.leftBtn setUserInteractionEnabled:false];
+        [self.rightBtn setUserInteractionEnabled:false];
+        [self.topBtn setUserInteractionEnabled:false];
+        [self.bottomBtn setUserInteractionEnabled:false];
+    }
+    
+    //touchMoveView
+    self.touchMoveView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 5, 5)];
+    [self.touchMoveView setBackgroundColor:UIColorWithRGBHex(0x000000)];
+    [self.touchMoveView.layer setMasksToBounds:true];
+    [self.touchMoveView.layer setCornerRadius:2.5f];
+    [self.containerView addSubview:self.touchMoveView];
+    [self.touchMoveView setHidden:true];
 }
 
 -(void) initDisplay{
@@ -130,28 +156,133 @@
 }
 
 //MARK:===============================================================
-//MARK:                     < onClick >
+//MARK:                     < privateMethod >
 //MARK:===============================================================
-- (IBAction)contentViewTouchDown:(id)sender {
-    if (self.delegate && [self.delegate respondsToSelector:@selector(nodeView_OnClick:)]) {
-        NSString *desc = [self.delegate nodeView_OnClick:self.data];
-        TPLog(@"> %@", desc);
+-(UIButton*) createEdgeBtn:(CGRect)frame onClick:(SEL)onClick{
+    UIButton *btn = [[UIButton alloc] initWithFrame:frame];
+    [btn setBackgroundColor:[UIColor blackColor]];
+    [btn addTarget:self action:onClick forControlEvents:UIControlEventTouchUpInside];
+    [self.contentView addSubview:btn];
+    [btn.layer setCornerRadius:MAX(frame.size.width,frame.size.height) * 0.5f];
+    [btn.layer setBorderWidth:1.0f / UIScreen.mainScreen.scale];
+    [btn.layer setBorderColor:[UIColor grayColor].CGColor];
+    return btn;
+}
+
+//父级scrollView滚动开关
+-(void) setSuperScrollEnable:(BOOL)enable{
+    NSArray *svs = ARRTOOK([self superViews_AllDeepWithClass:UIScrollView.class]);
+    for (UIScrollView *sv in svs) {
+        [sv setScrollEnabled:enable];
     }
 }
-- (IBAction)contentViewTouchCancel:(id)sender {
-    TPLog(@"松开");
+
+//MARK:===============================================================
+//MARK:                     < onClick >
+//MARK:===============================================================
+- (IBAction)contentViewOnClick:(UIControl *)sender {
+    [self nodeView_OnClick:self.data];
+    [self animationClick:sender];
 }
-- (IBAction)topBtnOnClick:(id)sender {
+
+- (void)topBtnOnClick:(UIControl*)sender {
     [self nodeView_TopClick:self.data];
+    [self animationClick:sender];
 }
-- (IBAction)bottomBtnOnClick:(id)sender {
+- (void)bottomBtnOnClick:(UIControl*)sender {
     [self nodeView_BottomClick:self.data];
+    [self animationClick:sender];
 }
-- (IBAction)leftBtnOnClick:(id)sender {
+- (void)leftBtnOnClick:(UIControl*)sender {
     [self nodeView_LeftClick:self.data];
+    [self animationClick:sender];
 }
-- (IBAction)rightBtnOnClick:(id)sender {
+- (void)rightBtnOnClick:(UIControl*)sender {
     [self nodeView_RightClick:self.data];
+    [self animationClick:sender];
+}
+
+//MARK:===============================================================
+//MARK:                     < animation >
+//MARK:===============================================================
+-(void) animationClick:(UIView*)view{
+    if (view) {
+        [UIView animateWithDuration:0.2f animations:^{
+            [view.layer setTransform:CATransform3DMakeScale(1.2f, 1.2f, 1.2f)];
+        }completion:^(BOOL finished) {
+            [UIView animateWithDuration:0.2f animations:^{
+                [view.layer setTransform:CATransform3DIdentity];
+            }];
+        }];
+    }
+}
+
+//MARK:===============================================================
+//MARK:                     < touchOverride >
+//MARK:===============================================================
+-(void) touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event{
+    [super touchesBegan:touches withEvent:event];
+    [self setSuperScrollEnable:false];
+}
+
+-(void) touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event{
+    //1. 取touch坐标
+    [super touchesMoved:touches withEvent:event];
+    CGPoint touchLocation = [[touches anyObject] locationInView:self];
+    
+    //2. 计算距离和角度
+    CGPoint center = CGPointMake(cNodeSize*0.5f, cNodeSize*0.5f);
+    CGFloat distance = [NVViewUtil distancePoint:center second:touchLocation];
+    CGFloat angle = [NVViewUtil angleZero2OnePoint:center second:touchLocation];
+    
+    //3. 设置touchMoveView的显示
+    [self.touchMoveView setHidden:distance < cNodeGesDistance];
+    if (angle > 0.125f && angle < 0.375f) {
+        [self.touchMoveView setCenter:CGPointMake(center.x + 0, center.y + -cNodeGesDistance)];//上
+    }else if (angle > 0.375f && angle < 0.625f) {
+        [self.touchMoveView setCenter:CGPointMake(center.x + cNodeGesDistance, center.y + 0)];//右
+    }else if (angle > 0.625f && angle < 0.875f) {
+        [self.touchMoveView setCenter:CGPointMake(center.x + 0, center.y + cNodeGesDistance)];//下
+    }else {
+        [self.touchMoveView setCenter:CGPointMake(center.x + -cNodeGesDistance, center.y + 0)];//左
+    }
+}
+
+-(void) touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event{
+    //1. 取touch坐标
+    [super touchesEnded:touches withEvent:event];
+    CGPoint touchLocation = [[touches anyObject] locationInView:self];
+    
+    //2. 计算距离和角度
+    CGPoint center = CGPointMake(cNodeSize*0.5f, cNodeSize*0.5f);
+    CGFloat distance = [NVViewUtil distancePoint:center second:touchLocation];
+    CGFloat angle = [NVViewUtil angleZero2OnePoint:center second:touchLocation];
+    
+    //3. 达到距离时,边角点击事件
+    if (distance > cNodeGesDistance) {
+        if (angle > 0.125f && angle < 0.375f) {
+            [self nodeView_TopClick:self.data];//上
+        }else if (angle > 0.375f && angle < 0.625f) {
+            [self nodeView_RightClick:self.data];//右
+        }else if (angle > 0.625f && angle < 0.875f) {
+            [self nodeView_BottomClick:self.data];//下
+        }else {
+            [self nodeView_LeftClick:self.data];//左
+        }
+    }else if(distance < cNodeSize * 0.5f){
+        //4. 在节点内时,节点点击事件;
+        [self nodeView_OnClick:self.data];
+    }
+    
+    //5. 恢复display
+    [self setSuperScrollEnable:true];
+    [self.touchMoveView setHidden:true];
+}
+
+-(void) touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event{
+    [super touchesCancelled:touches withEvent:event];
+    [self setSuperScrollEnable:true];
+    [self.touchMoveView setHidden:true];
 }
 
 //MARK:===============================================================
@@ -190,5 +321,11 @@
     }
 }
 
-@end
+-(void) nodeView_OnClick:(id)nodeData{
+    if (self.delegate && [self.delegate respondsToSelector:@selector(nodeView_OnClick:)]) {
+        NSString *desc = [self.delegate nodeView_OnClick:self.data];
+        TPLog(@"> %@", desc);
+    }
+}
 
+@end

@@ -13,6 +13,8 @@
 #import "NVNodeView.h"
 #import "NVLineView.h"
 #import "NVViewUtil.h"
+#import "NVConfig.h"
+#import "AIKVPointer.h"
 
 @interface NVView () <NVModuleViewDelegate>
 
@@ -40,7 +42,7 @@
 
 -(void) initView{
     //self
-    [self setFrame:CGRectMake(ScreenWidth - 40, 20, 40, 20)];
+    [self setFrame:CGRectMake(ScreenWidth - 40, StateBarHeight, 40, 20)];
     
     //containerView
     [[NSBundle mainBundle] loadNibNamed:NSStringFromClass(self.class) owner:self options:nil];
@@ -55,7 +57,7 @@
     //scrollView
     self.scrollView = [[UIScrollView alloc] init];
     [self.containerView addSubview:self.scrollView];
-    [self.scrollView setFrame:CGRectMake(0, 20, ScreenWidth, 280)];
+    [self.scrollView setFrame:CGRectMake(0, 20, ScreenWidth, cNVHeight - 20)];
     [self.scrollView setShowsVerticalScrollIndicator:NO];
     [self.scrollView setShowsHorizontalScrollIndicator:NO];
     
@@ -68,18 +70,16 @@
     NSArray *moduleIds = [self nv_GetModuleIds];
     if (ARRISOK(moduleIds)) {
         CGFloat curModuleX = 2;
-        CGFloat moduleW = 300;
-        CGFloat moduleH = 276;
         for (NSString *moduleId in moduleIds) {
             NVModuleView *moduleView = [[NVModuleView alloc] init];
             moduleView.delegate = self;
             [moduleView setDataWithModuleId:moduleId];
-            [moduleView setFrame:CGRectMake(curModuleX, 2, moduleW, moduleH)];
+            [moduleView setFrame:CGRectMake(curModuleX, 2, cModuleWidth, cModuleHeight)];
             [self.contentView addSubview:moduleView];
-            curModuleX += (moduleW + 2);
+            curModuleX += (cModuleWidth + 2);
         }
-        [self.scrollView setContentSize:CGSizeMake(curModuleX, 276)];
-        [self.contentView setFrame:CGRectMake(0, 0, curModuleX, 276)];
+        [self.scrollView setContentSize:CGSizeMake(curModuleX, cModuleHeight)];
+        [self.contentView setFrame:CGRectMake(0, 0, curModuleX, cModuleHeight)];
     }
 }
 
@@ -120,6 +120,11 @@
             [mView setDataWithNodeDatas:[dic objectForKey:mId]];
         }
     }
+}
+
+-(void) setNodeData:(id)nodeData lightStr:(NSString*)lightStr{
+    [self setNodeData:nodeData];
+    [self lightNode:nodeData str:lightStr];
 }
 
 -(void) clear{
@@ -183,7 +188,7 @@
 //MARK:===============================================================
 - (IBAction)openCloseBtnOnClick:(id)sender {
     self.isOpen = !self.isOpen;
-    self.height = self.isOpen ? 300 : 20;
+    self.height = self.isOpen ? cNVHeight : 20;
     self.x = self.isOpen ? 0 : ScreenWidth - 40;
     self.width = self.isOpen ? ScreenWidth : 40;
     [self.openCloseBtn setTitle:(self.isOpen ? @"一" : @"口") forState:UIControlStateNormal];
@@ -328,7 +333,7 @@
                 float centerY = (pointA.y + pointB.y) / 2.0f;
                 
                 //12. 旋转角度
-                CGFloat angle = [NVViewUtil anglePoint:pointA second:pointB];
+                CGFloat angle = [NVViewUtil anglePIPoint:pointA second:pointB];
                 
                 //13. draw
                 [lView.layer setTransform:CATransform3DMakeRotation(0, 0, 0, 1)];

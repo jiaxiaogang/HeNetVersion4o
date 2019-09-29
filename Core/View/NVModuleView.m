@@ -13,6 +13,7 @@
 #import "NodeCompareModel.h"
 #import "NVViewUtil.h"
 #import "NVModuleUtil.h"
+#import "NVConfig.h"
 
 @interface NVModuleView ()<NVNodeViewDelegate>
 
@@ -127,10 +128,6 @@
     
     //3. 根据编号计算坐标;
     NSArray *nodeViews = ARRTOOK([self subViews_AllDeepWithClass:NVNodeView.class]);
-    CGFloat layerSpace = 65;//层间距
-    CGFloat xSpace = 18;    //节点横间距
-    CGFloat nodeSize = 20;  //节点大小
-    CGFloat ySpace = 10;    //同层纵间距
     
     //4. 同层计数器 (本层节点个数)
     NSMutableDictionary *yLayerCountDic = [[NSMutableDictionary alloc] init];
@@ -149,9 +146,9 @@
                     [yLayerCountDic setObject:@(layerCount + 1) forKey:@(y)];
                     
                     //7. 节点坐标
-                    float spaceX = MIN(xSpace, (self.width - nodeSize) / nodeViews.count);
+                    float spaceX = MIN(cXSpace, (self.width - cNodeSize) / nodeViews.count);
                     nodeView.x = x * spaceX;
-                    nodeView.y = (self.height - nodeSize) - (y * layerSpace) - (layerCount % 3) * ySpace;
+                    nodeView.y = (self.height - cNodeSize) - (y * cLayerSpace) - (layerCount % 3) * cYSpace;
                 }
             }
         }
@@ -232,7 +229,7 @@
     for (NVNodeView *nodeView in nViews) {
         if (self.delegate && [self.delegate respondsToSelector:@selector(moduleView_ShowName:)]) {
             NSString *showName = [self.delegate moduleView_ShowName:nodeView.data];
-            [nodeView setTitle:showName showTime:10];
+            [nodeView setTitle:showName showTime:cShowNameTime];
         }
     }
 }
@@ -261,22 +258,22 @@
 -(void) nodeView_TopClick:(id)nodeData{
     NSArray *absNodeDatas = [self moduleView_AbsNodeDatas:nodeData];
     [self setDataWithNodeDatas:absNodeDatas];
-    TPLog(@"absPorts:%d",absNodeDatas.count);
+    TPLog(@"absPorts:%lu",(unsigned long)absNodeDatas.count);
 }
 -(void) nodeView_BottomClick:(id)nodeData{
     NSArray *conNodeDatas = [self moduleView_ConNodeDatas:nodeData];
     [self setDataWithNodeDatas:conNodeDatas];
-    TPLog(@"conPorts:%d",conNodeDatas.count);
+    TPLog(@"conPorts:%lu",(unsigned long)conNodeDatas.count);
 }
 -(void) nodeView_LeftClick:(id)nodeData{
     NSArray *contentNodeDatas = [self moduleView_ContentNodeDatas:nodeData];
     [self.delegate moduleView_SetNetDatas:contentNodeDatas];
-    TPLog(@"contentPorts:%d",contentNodeDatas.count);
+    TPLog(@"contentPorts:%lu",(unsigned long)contentNodeDatas.count);
 }
 -(void) nodeView_RightClick:(id)nodeData{
     NSArray *refNodeDatas = [self moduleView_RefNodeDatas:nodeData];
     [self.delegate moduleView_SetNetDatas:refNodeDatas];
-    TPLog(@"refPorts:%d",refNodeDatas.count);
+    TPLog(@"refPorts:%lu",(unsigned long)refNodeDatas.count);
 }
 
 //MARK:===============================================================

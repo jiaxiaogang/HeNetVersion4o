@@ -7,6 +7,7 @@
 //
 
 #import "NVLineView.h"
+#import "NVConfig.h"
 
 @interface NVLineView ()
 
@@ -35,9 +36,9 @@
     
     //containerView
     self.containerView = [[UIView alloc] init];
-    [self.containerView setBackgroundColor:[UIColor redColor]];
+    [self.containerView setBackgroundColor:UIColorWithRGBHex(0xBB5500)];
     [self addSubview:self.containerView];
-    [self.containerView setAlpha:0.3f];
+    [self.containerView setAlpha:0.2f];
 }
 
 -(void) initData{
@@ -71,8 +72,7 @@
 
 -(void)setFrame:(CGRect)frame{
     [super setFrame:frame];
-    [self.containerView setFrame:CGRectMake(10, 0, self.width - 20, self.height)];
+    [self.containerView setFrame:CGRectMake(cNodeSize * 0.5f, 0, self.width - cNodeSize, self.height)];
 }
 
 @end
-
